@@ -9,6 +9,10 @@ using System.Net.Http;
 using KoenZomers.OneDrive.Api.Enums;
 using System.IO;
 
+#if NET45
+using System.Web;
+#endif
+
 namespace KoenZomers.OneDrive.Api
 {
     /// <summary>
@@ -379,7 +383,7 @@ namespace KoenZomers.OneDrive.Api
             var completeUrl = string.Concat(OneDriveApiBaseUrl, "drive/items/", item.Id, "/permissions/", permissionId);
 
             var result = await SendMessageReturnBool(null, HttpMethod.Delete, completeUrl, HttpStatusCode.NoContent);
-            return result;            
+            return result;
         }
 
         /// <summary>
@@ -788,8 +792,13 @@ namespace KoenZomers.OneDrive.Api
         /// <returns>OneDrive entity filled with the information retrieved from the Graph API</returns>
         protected virtual async Task<T> GetGraphData<T>(string url) where T : OneDriveItemBase
         {
+#if NETSTANDARD1_6
             // Construct the complete URL to call
-            var completeUrl = url.StartsWith("http", StringComparison.InvariantCultureIgnoreCase) ? url : string.Concat(GraphApiBaseUrl, url);
+            var completeUrl = url.ToLower().StartsWith("http") ? url : string.Concat(OneDriveApiBaseUrl, url);
+#else
+            // Construct the complete URL to call
+            var completeUrl = url.StartsWith("http", StringComparison.InvariantCultureIgnoreCase) ? url : string.Concat(OneDriveApiBaseUrl, url);
+#endif
 
             // Call the OneDrive webservice
             var result = await SendMessageReturnOneDriveItem<T>("", HttpMethod.Get, completeUrl, HttpStatusCode.OK);

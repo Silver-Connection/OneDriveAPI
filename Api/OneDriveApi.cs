@@ -7,11 +7,14 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
-using System.Web;
 using KoenZomers.OneDrive.Api.Entities;
 using KoenZomers.OneDrive.Api.Enums;
 using KoenZomers.OneDrive.Api.Helpers;
 using Newtonsoft.Json;
+
+#if NET45
+using System.Web;
+#endif
 
 namespace KoenZomers.OneDrive.Api
 {
@@ -144,9 +147,16 @@ namespace KoenZomers.OneDrive.Api
                 return null;
             }
 
+#if NET45
             // Get the querystring parameters from the URL
             var queryString = url.Remove(0, AuthenticationRedirectUrl.Length + 1);
             var queryStringParams = HttpUtility.ParseQueryString(queryString);
+#else
+
+            // Get the querystring parameters from the URL
+            var uri = new Uri(url);
+            var queryStringParams = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+#endif
 
             AuthorizationToken = queryStringParams["code"];
             return AuthorizationToken;
@@ -243,7 +253,7 @@ namespace KoenZomers.OneDrive.Api
                             // Try to parse the response as a OneDrive API error message
                             errorResult = JsonConvert.DeserializeObject<OneDriveError>(responseBody);
                         }
-                        catch(Exception ex)
+                        catch (Exception ex)
                         {
                             throw new Exceptions.TokenRetrievalFailedException(innerException: ex);
                         }
@@ -251,7 +261,7 @@ namespace KoenZomers.OneDrive.Api
                         throw new Exceptions.TokenRetrievalFailedException(message: errorResult.ErrorDescription, errorDetails: errorResult);
                     }
                 }
-            }       
+            }
         }
 
         /// <summary>
@@ -435,7 +445,7 @@ namespace KoenZomers.OneDrive.Api
         public virtual async Task<OneDriveItem> GetItemInFolder(OneDriveItem folder, string fileName)
         {
             var itemsInFolder = await GetAllChildrenByFolderId(folder.Id);
-            var item = itemsInFolder.FirstOrDefault(i => string.Equals(i.Name, fileName, StringComparison.InvariantCultureIgnoreCase));
+            var item = itemsInFolder.FirstOrDefault(i => string.Equals(i.Name.ToLower(), fileName.ToLower()));
             return item;
         }
 
@@ -474,7 +484,7 @@ namespace KoenZomers.OneDrive.Api
             path = path.Replace("/", "\\");
 
             // Check if the path contains multiple folders
-            if(path.Contains("\\"))
+            if (path.Contains("\\"))
             {
                 // Path contains multiple folders, use recursion to ensure the entire path exists
                 await GetFolderOrCreate(path.Remove(path.LastIndexOf("\\")));
@@ -945,7 +955,7 @@ namespace KoenZomers.OneDrive.Api
         protected virtual async Task<OneDriveItem> CreateFolderInternal(string oneDriveRequestUrl, string folderName)
         {
             // Construct the complete URL to call
-            var completeUrl = string.Concat(OneDriveApiBaseUrl, oneDriveRequestUrl);            
+            var completeUrl = string.Concat(OneDriveApiBaseUrl, oneDriveRequestUrl);
 
             // Construct the JSON to send in the POST message
             var newFolder = new OneDriveCreateFolder { Name = folderName, Folder = new object() };
@@ -1041,7 +1051,7 @@ namespace KoenZomers.OneDrive.Api
         /// <param name="oneDriveUrl">The URL to POST the file contents to</param>
         /// <returns>The resulting OneDrive item representing the uploaded file</returns>
         protected async Task<OneDriveItem> UploadFileViaSimpleUploadInternal(Stream fileStream, string oneDriveUrl)
-        { 
+        {
             // Get an access token to perform the request to OneDrive
             var accessToken = await GetAccessToken();
 
@@ -1074,7 +1084,7 @@ namespace KoenZomers.OneDrive.Api
 
                                 return responseOneDriveItem;
                             }
-                            catch(JsonReaderException e)
+                            catch (JsonReaderException e)
                             {
                                 throw new Exceptions.InvalidResponseException(responseString, e);
                             }
@@ -1092,7 +1102,7 @@ namespace KoenZomers.OneDrive.Api
         /// <param name="oneDriveItem">OneDriveItem of the folder to which the file should be uploaded</param>
         /// <returns>The resulting OneDrive item representing the uploaded file</returns>
         public async Task<OneDriveItem> UploadFileViaSimpleUpload(FileInfo file, string fileName, OneDriveItem oneDriveItem)
-        {          
+        {
             // Read the file to upload
             using (var fileStream = file.OpenRead())
             {
@@ -1210,7 +1220,7 @@ namespace KoenZomers.OneDrive.Api
                 long currentPosition = 0;
 
                 // Defines a buffer which will be filled with bytes from the original file and then sent off to the OneDrive webservice
-                var fragmentBuffer = new byte[fragmentSizeInKiloByte*1000];
+                var fragmentBuffer = new byte[fragmentSizeInKiloByte * 1000];
 
                 // Create an HTTPClient instance to communicate with the REST API of OneDrive to perform the upload 
                 using (var client = CreateHttpClient(accessToken.AccessToken))
@@ -1220,14 +1230,20 @@ namespace KoenZomers.OneDrive.Api
                     {
                         var fragmentSuccessful = true;
 
+#if NETSTANDARD1_6
+                        // Define the end position in the file bytes based on the buffer size we're using to send fragments of the file to OneDrive
+                        var endPosition = currentPosition + fragmentBuffer.Length;
+#else
                         // Define the end position in the file bytes based on the buffer size we're using to send fragments of the file to OneDrive
                         var endPosition = currentPosition + fragmentBuffer.LongLength;
+#endif
+
 
                         // Make sure our end position isn't further than the file size in which case it would be the last fragment of the file to be sent
                         if (endPosition > fileStream.Length) endPosition = fileStream.Length;
 
                         // Define how many bytes should be read from the source file
-                        var amountOfBytesToSend = (int) (endPosition - currentPosition);
+                        var amountOfBytesToSend = (int)(endPosition - currentPosition);
 
                         // Copy the bytes from the source file into the buffer
                         await fileStream.ReadAsync(fragmentBuffer, 0, amountOfBytesToSend);
@@ -1311,8 +1327,15 @@ namespace KoenZomers.OneDrive.Api
         /// <returns>OneDrive entity filled with the information retrieved from the OneDrive API</returns>
         protected async Task<T> GetData<T>(string url) where T : OneDriveItemBase
         {
+#if NETSTANDARD1_6
+            // Construct the complete URL to call
+            var completeUrl = url.ToLower().StartsWith("http") ? url : string.Concat(OneDriveApiBaseUrl, url);
+#else
             // Construct the complete URL to call
             var completeUrl = url.StartsWith("http", StringComparison.InvariantCultureIgnoreCase) ? url : string.Concat(OneDriveApiBaseUrl, url);
+#endif
+
+
 
             // Call the OneDrive webservice
             var result = await SendMessageReturnOneDriveItem<T>("", HttpMethod.Get, completeUrl, HttpStatusCode.OK);
@@ -1358,7 +1381,7 @@ namespace KoenZomers.OneDrive.Api
 
             // Call the OneDrive webservice
             var result = await SendMessageReturnBool(requestBody, HttpMethod.Post, completeUrl, HttpStatusCode.Accepted, true);
-            return result;              
+            return result;
         }
 
         /// <summary>

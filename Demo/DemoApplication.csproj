@@ -85,7 +85,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Api\Api.csproj">
-      <Project>{3c80ef7e-5a02-429d-86e7-542f9a88933d}</Project>
+      <Project>{307cc2f2-c358-4a6e-97f9-4bfb6d612907}</Project>
       <Name>Api</Name>
     </ProjectReference>
   </ItemGroup>
