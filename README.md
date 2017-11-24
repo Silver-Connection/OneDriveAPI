@@ -1,4 +1,5 @@
 # OneDriveAPI
+
 OneDrive API in C#
 
 Easy to use lightweight framework to communicate with the OneDrive and OneDrive for Business through either the Azure AD (api.onedrive.com & tenant-my.sharepoint.com/_api or the Azure AD V2.0 (graph.microsoft.com) endpoint. It allows communication through one unified piece of code with:
@@ -64,6 +65,10 @@ Package statistics:
 https://www.nuget.org/packages/KoenZomers.OneDrive.Api
 
 ## Version History
+
+3.0.0 - November 17, 2017
+
+- Update project to work with .net4.5, .net4.6, .net Standard 1.6 and .net Standard 2.0
 
 2.0.3.0 - October 31, 2017
 

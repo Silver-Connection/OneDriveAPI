@@ -2,10 +2,6 @@
 
 ## Version History
 
-3.0.0 - November 17, 2017
-
-- Update project to work with .net4.5, .net4.6, .net Standard 1.6 and .net Standard 2.0
-
 1.6.6.1 - October 17, 2016
 
 - The last update introduced a bug when using the system default proxy with the system default credentials. Fixed it in this release.
